@@ -18,6 +18,7 @@ package spray.routing
 package directives
 
 import shapeless._
+import ops.hlist._
 
 trait AnyParamDirectives {
   /**
@@ -78,11 +79,13 @@ trait AnyParamDefMagnet2[T] {
 object AnyParamDefMagnet2 {
   import FieldDefMagnet2.FieldDefMagnetAux
   import ParamDefMagnet2.ParamDefMagnetAux
+  import shapeless.syntax.std.product._
 
-  implicit def forTuple[T <: Product, L <: HList, Out](implicit hla: HListerAux[T, L],
-                                                       apdma: AnyParamDefMagnet2[L]) =
+  implicit def forTuple[T <: Product, L <: HList, M <: HList, Out](implicit hla: Generic.Aux[T, L],
+                                                                   ev: L =:= M,
+                                                                   apdma: AnyParamDefMagnet2[M]) =
     new AnyParamDefMagnet2[T] {
-      def apply(value: T) = apdma(hla(value))
+      def apply(value: T) = apdma(value.productElements)
       type Out = apdma.Out
     }
 
@@ -97,7 +100,7 @@ object AnyParamDefMagnet2 {
   object MapReduce extends Poly2 {
     implicit def from[T, LA <: HList, LB <: HList, Out <: HList](implicit fdma: FieldDefMagnetAux[T, Directive[LB]],
                                                                  pdma: ParamDefMagnetAux[T, Directive[LB]],
-                                                                 ev: PrependAux[LA, LB, Out]) = {
+                                                                 ev: Prepend.Aux[LA, LB, Out]) = {
 
       // see https://groups.google.com/forum/?fromgroups=#!topic/spray-user/HGEEdVajpUw
       def fdmaWrapper(t: T): Directive[LB] = fdma(t).hflatMap {

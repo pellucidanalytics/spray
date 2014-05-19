@@ -19,6 +19,8 @@ package directives
 
 import java.lang.IllegalStateException
 import shapeless._
+import shapeless.ops.hlist._
+import shapeless.syntax.std.product._
 
 trait ParameterDirectives extends ToNameReceptaclePimps {
 
@@ -80,9 +82,7 @@ trait ParamDefMagnet2[T] {
   def apply(value: T): Out
 }
 
-object ParamDefMagnet2 {
-  type ParamDefMagnetAux[A, B] = ParamDefMagnet2[A] { type Out = B }
-  def ParamDefMagnetAux[A, B](f: A ⇒ B) = new ParamDefMagnet2[A] { type Out = B; def apply(value: A) = f(value) }
+object ParamDefMagnet2 extends ParamDefMagnet2LowPriority {
 
   import spray.httpx.unmarshalling.{ FromStringOptionDeserializer ⇒ FSOD, _ }
   import BasicDirectives._
@@ -124,6 +124,7 @@ object ParamDefMagnet2 {
       case Right(value) if value == requiredValue ⇒ pass
       case _                                      ⇒ reject
     }
+
   implicit def forRVR[T](implicit fsod: FSOD[T]) = ParamDefMagnetAux[RequiredValueReceptacle[T], Directive0] { rvr ⇒
     requiredFilter(rvr.name, fsod, rvr.requiredValue)
   }
@@ -133,8 +134,13 @@ object ParamDefMagnet2 {
 
   /************ tuple support ******************/
 
-  implicit def forTuple[T <: Product, L <: HList, Out0](implicit hla: HListerAux[T, L], pdma: ParamDefMagnetAux[L, Out0]) =
-    ParamDefMagnetAux[T, Out0](tuple ⇒ pdma(hla(tuple)))
+  implicit def forTuple[T <: Product, L <: HList, M <: HList, Out0](implicit hla: Generic.Aux[T, L], ev: L =:= M, pdma: ParamDefMagnetAux[M, Out0]) = {
+    ParamDefMagnetAux[T, Out0](tuple ⇒ pdma(tuple.productElements))
+  }
+
+}
+
+trait ParamDefMagnet2LowPriority {
 
   /************ HList support ******************/
 
@@ -142,7 +148,11 @@ object ParamDefMagnet2 {
     ParamDefMagnetAux[L, f.Out](_.foldLeft(BasicDirectives.noop)(MapReduce))
 
   object MapReduce extends Poly2 {
-    implicit def from[T, LA <: HList, LB <: HList, Out <: HList](implicit pdma: ParamDefMagnetAux[T, Directive[LB]], ev: PrependAux[LA, LB, Out]) =
+    implicit def from[T, LA <: HList, LB <: HList, Out <: HList](implicit pdma: ParamDefMagnetAux[T, Directive[LB]], ev: Prepend.Aux[LA, LB, Out]) =
       at[Directive[LA], T] { (a, t) ⇒ a & pdma(t) }
   }
+
+  type ParamDefMagnetAux[A, B] = ParamDefMagnet2[A] { type Out = B }
+  def ParamDefMagnetAux[A, B](f: A ⇒ B) = new ParamDefMagnet2[A] { type Out = B; def apply(value: A) = f(value) }
+
 }

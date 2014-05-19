@@ -143,6 +143,7 @@ class FormFieldDirectivesSpec extends RoutingSpec {
     }
   }
   "The 'formField' requirement with deserializer directive" should {
+    implicit val forRVDRInt = spray.routing.directives.FieldDefMagnet2.forRVDR[Int]
     "block requests that do not contain the required formField" in {
       Get("/", urlEncodedForm) ~> {
         formFields('oldAge.as(Deserializer.HexInt) ! 78) { completeOk }

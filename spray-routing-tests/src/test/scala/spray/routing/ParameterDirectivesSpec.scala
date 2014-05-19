@@ -16,7 +16,8 @@
 
 package spray.routing
 
-import shapeless.HNil
+import shapeless._
+import spray.routing.directives._
 
 class ParameterDirectivesSpec extends RoutingSpec {
 
@@ -42,6 +43,10 @@ class ParameterDirectivesSpec extends RoutingSpec {
     }
     "supply typed default values" in {
       Get() ~> {
+
+        implicit val forNDefRINt: ParamDefMagnet2.ParamDefMagnetAux[NameDefaultReceptacle[Int], Directive1[Int]] =
+          ParamDefMagnet2.forNDefR[Int]
+
         parameter('amount ? 45) { echoComplete }
       } ~> check { responseAs[String] === "45" }
     }
@@ -70,14 +75,25 @@ class ParameterDirectivesSpec extends RoutingSpec {
 
   "when used with 'as(HexInt)' the parameter directive" should {
     import spray.httpx.unmarshalling.FromStringDeserializers.HexInt
+
+    implicit val forNDesRInt: ParamDefMagnet2.ParamDefMagnetAux[NameDeserializerReceptacle[Int], Directive1[Int]] =
+      ParamDefMagnet2.forNDesR[Int]
+
+    implicit val forNDesROptInt: ParamDefMagnet2.ParamDefMagnetAux[NameDeserializerReceptacle[Option[Int]], Directive1[Option[Int]]] =
+      ParamDefMagnet2.forNDesR[Option[Int]]
+
+    implicit val forNDesDefRInt: ParamDefMagnet2.ParamDefMagnetAux[NameDeserializerDefaultReceptacle[Int], Directive1[Int]] =
+      ParamDefMagnet2.forNDesDefR[Int]
+
     "extract parameter values as Int" in {
       Get("/?amount=1f") ~> {
-        parameter('amount.as(HexInt)) { echoComplete }
+
+        parameter(ParamDefMagnet('amount.as(HexInt))) { echoComplete }
       } ~> check { responseAs[String] === "31" }
     }
     "cause a MalformedQueryParamRejection on illegal Int values" in {
       Get("/?amount=1x3") ~> {
-        parameter('amount.as(HexInt)) { echoComplete }
+        parameter(ParamDefMagnet('amount.as(HexInt))) { echoComplete }
       } ~> check {
         rejection must beLike {
           case MalformedQueryParamRejection("amount",
@@ -93,12 +109,12 @@ class ParameterDirectivesSpec extends RoutingSpec {
     "create typed optional parameters that" in {
       "extract Some(value) when present" in {
         Get("/?amount=A") ~> {
-          parameter("amount".as(HexInt)?) { echoComplete }
+          parameter(ParamDefMagnet("amount".as(HexInt)?)) { echoComplete }
         } ~> check { responseAs[String] === "Some(10)" }
       }
       "extract None when not present" in {
         Get() ~> {
-          parameter("amount".as(HexInt)?) { echoComplete }
+          parameter(ParamDefMagnet("amount".as(HexInt)?)) { echoComplete }
         } ~> check { responseAs[String] === "None" }
       }
       "cause a MalformedQueryParamRejection on illegal Int values" in {
